@@ -7,10 +7,9 @@ from dataclasses import dataclass
 from time import perf_counter
 
 import numpy as np
-from scipy.optimize import linprog
+from replication.cplex_lp import linprog
 from scipy.sparse import coo_matrix
 
-SOLVER_OPTIONS = {"primal_feasibility_tolerance": 1e-9, "dual_feasibility_tolerance": 1e-9}
 FEASIBILITY_TOL = 1e-6
 CRITICALITY_TOL = 1e-6
 ENERGY_ZERO_TOL = 1e-9
@@ -129,7 +128,7 @@ def _recover_schedule(m, q, solution, c, d, elapsed, guard, formulation):
         raise RuntimeError(f"Capacity solver failed: {solution.message}")
     result = {
         "status": "optimal" if solution.success else "infeasible",
-        "scipy_status": int(solution.status),
+        "cplex_status": solution.native_status,
         "message": str(solution.message),
         "M_kw": None,
         "energy_residual_kwh": None,
@@ -250,9 +249,7 @@ def solve_capacity(model, q, guard=True):
         b_ub=inequalities.rhs,
         A_eq=equalities.matrix(n_variables),
         b_eq=equalities.rhs,
-        bounds=bounds,
-        method="highs",
-        options=SOLVER_OPTIONS,
+        bounds=bounds
     )
     elapsed = perf_counter() - start
     c = solution.x[:n_vehicle_slots].reshape(n, n_slots) if solution.success else None
@@ -292,9 +289,7 @@ def solve_reservation(model):
         b_ub=inequalities.rhs,
         A_eq=equalities.matrix(n_vehicle_slots + 1),
         b_eq=equalities.rhs,
-        bounds=bounds,
-        method="highs",
-        options=SOLVER_OPTIONS,
+        bounds=bounds
     )
     elapsed = perf_counter() - start
     c = solution.x[:n_vehicle_slots].reshape(n, n_slots) if solution.success else None
@@ -587,9 +582,7 @@ def compute_certificate(model, cut, q):
             objective,
             A_ub=inequalities.matrix(n_variables),
             b_ub=inequalities.rhs,
-            bounds=bounds,
-            method="highs",
-            options=SOLVER_OPTIONS,
+            bounds=bounds
         )
         if not solution.success:
             raise RuntimeError(f"Credit LP failed: {solution.message}")

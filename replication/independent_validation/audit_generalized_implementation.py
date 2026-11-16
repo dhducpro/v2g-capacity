@@ -21,7 +21,10 @@ import sys
 from time import perf_counter
 
 import numpy as np
-from scipy.optimize import linprog
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from cplex_lp import linprog
 from scipy.sparse import coo_matrix
 
 from weighted_capacity import compute_certificate, reservation_cut, solve_capacity
@@ -102,9 +105,7 @@ def explicit_credit(model, slots):
     objective = np.r_[np.zeros(nz), -dt]
     bounds = [(0., float(v)) for v in pd.ravel()] + [(0., None)] * nt
     start = perf_counter()
-    result = linprog(objective, A_ub=matrix, b_ub=rhs, bounds=bounds,
-                     method="highs", options={"primal_feasibility_tolerance":1e-9,
-                                               "dual_feasibility_tolerance":1e-9})
+    result = linprog(objective, A_ub=matrix, b_ub=rhs, bounds=bounds)
     elapsed = perf_counter() - start
     if not result.success:
         return {"status":"solver_error", "message":str(result.message),

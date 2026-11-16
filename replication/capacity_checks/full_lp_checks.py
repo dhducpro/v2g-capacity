@@ -15,7 +15,10 @@ from pathlib import Path
 
 import numpy as np
 from critical_cut_audit import BASE, HERE, reservation_cuts, residual_donor_credit
-from scipy.optimize import linprog
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from cplex_lp import linprog
 from scipy.sparse import csr_matrix
 
 
@@ -58,7 +61,7 @@ def solve_capacity(case, q, endpoints=(1.0, 1.5)):
     bounds += [(0, None)]
     obj = np.zeros(nv)
     obj[-1] = 1
-    ans = linprog(obj, A_ub=matrix, b_ub=rhs, bounds=bounds, method="highs")
+    ans = linprog(obj, A_ub=matrix, b_ub=rhs, bounds=bounds)
     if not ans.success:
         raise RuntimeError((case.get("name"), q, ans.message))
     charge = ans.x[:nz].reshape(n, nt).copy()

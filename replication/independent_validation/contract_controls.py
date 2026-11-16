@@ -11,7 +11,10 @@ import json
 from pathlib import Path
 
 import numpy as np
-from scipy.optimize import linprog
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from cplex_lp import linprog
 
 from weighted_capacity import solve_capacity
 
@@ -27,7 +30,7 @@ def recourse_lp(n, q, D, b, ec, ed, H):
             rows.extend([np.r_[-keep, -1.], np.r_[keep / k, -1.]])
             rhs.extend([-D, 0.]); scenarios.append((w, keep))
     ans = linprog(np.r_[np.zeros(n), 1.], A_ub=rows, b_ub=rhs,
-                  bounds=[(0., b)] * n + [(0., None)], method="highs")
+                  bounds=[(0., b)] * n + [(0., None)])
     if not ans.success: raise RuntimeError(ans.message)
     y = ans.x[:n]
     error = 0.

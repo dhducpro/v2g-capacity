@@ -14,14 +14,17 @@ INPUT_CHECKS = [
 ]
 
 OPTIMIZATION_STEPS = [
+    ("capacity_checks/build_hourly_contexts.py",),
     ("capacity_checks/critical_cut_audit.py",),
     ("capacity_checks/critical_cut_edge_checks.py",),
     ("capacity_checks/full_lp_checks.py",),
     ("capacity_checks/sharp_class_independent_check.py",),
     ("sensitivity_checks/time_guard_sensitivity.py", "--run"),
-    ("independent_validation/recompute_validation.py",),
+    ("independent_validation/run_validation.py", "--run"),
     ("independent_validation/contract_controls.py",),
     ("independent_validation/check_chronological_counterexample.py",),
+    ("independent_validation/check_weighted_capacity.py",),
+    ("independent_validation/audit_generalized_implementation.py",),
 ]
 
 OUTPUT_CHECKS = [
@@ -34,6 +37,7 @@ OUTPUT_CHECKS = [
     ("build_publication_tables.py",),
     ("build_presentation_figures.py",),
     ("build_validation_outputs.py",),
+    ("independent_validation/summarize_savings.py",),
 ]
 
 

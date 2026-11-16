@@ -1,16 +1,5 @@
 # V2G Capacity
 
-Station capacity under EV discharge withdrawals, using [Caltech ACN-Data](https://ev.caltech.edu/dataset) and synthetic fleets.
+Install IBM ILOG CPLEX Studio and set `CPLEX_BIN` to its executable (or `CPLEX_LIBRARY` to its shared library). Open [experiments.ipynb](experiments.ipynb) and select **Run All**. Inputs are included in [study-data.zip](study-data.zip). Each run writes its own schedules, tables and figures under `runs/`.
 
-Download the [study version](https://github.com/dhducpro/v2g-capacity/archive/refs/tags/v1.1.zip), open [experiments.ipynb](experiments.ipynb) and select **Run All**. The [capacity data](study-data.zip) are included. Results go to `runs/`.
-
-Set `CPLEX_BIN` to your CPLEX Studio executable before opening the notebook to repeat the capacity and cut-credit checks. The [Windows CPLEX results](results/cplex_frontiers.csv) give one row per fleet and withdrawal budget.
-
-The paper supplies the economic, calibration and runtime records separately as `reviewer-control-records.zip`.
-
-For the six-vehicle example:
-
-```sh
-python -m pip install -r requirements-capacity.txt
-python solve_fleet.py examples/fleet.json --q 1
-```
+[Protected capacities](results/cplex_frontiers.csv) for the Caltech and synthetic fleets were solved with CPLEX 22.1.2. The paper provides its economic and calibration experiments in a separate supplementary archive.

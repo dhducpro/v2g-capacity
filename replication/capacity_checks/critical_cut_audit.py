@@ -14,7 +14,10 @@ import json
 from pathlib import Path
 
 import numpy as np
-from scipy.optimize import linprog
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from cplex_lp import linprog
 from scipy.sparse import coo_matrix
 
 HERE = Path(__file__).resolve().parent
@@ -132,7 +135,7 @@ def residual_donor_credit(pd, energy, q):
             row += 1
     matrix = coo_matrix((vals, (rows, cols)), shape=(row, nv)).tocsr()
     bounds = [(0, float(x)) for x in pd.ravel()] + [(0, None)] * (nv - nz)
-    result = linprog(objective, A_ub=matrix, b_ub=rhs, bounds=bounds, method="highs")
+    result = linprog(objective, A_ub=matrix, b_ub=rhs, bounds=bounds)
     if not result.success:
         raise RuntimeError(result.message)
     return max(0.0, -float(result.fun))

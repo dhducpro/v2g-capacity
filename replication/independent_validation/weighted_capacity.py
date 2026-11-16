@@ -32,12 +32,13 @@ from dataclasses import dataclass
 from time import perf_counter
 
 import numpy as np
-from scipy.optimize import linprog
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from cplex_lp import linprog
 from scipy.sparse import coo_matrix
 
 
-SOLVER_OPTIONS = {"primal_feasibility_tolerance": 1e-9,
-                  "dual_feasibility_tolerance": 1e-9}
 FEASIBILITY_TOL = 1e-6
 CRITICALITY_TOL = 1e-6
 ENERGY_ZERO_TOL = 1e-9
@@ -138,7 +139,7 @@ def audit_schedule(model, q, charge, discharge, M, guard=True):
 
 def _finish(m, q, ans, c, d, elapsed, guard, formulation):
     result = {"status": "optimal" if ans.success else "infeasible" if ans.status == 2 else "solver_error",
-              "scipy_status": int(ans.status), "message": str(ans.message),
+              "cplex_status": ans.native_status, "message": str(ans.message),
               "M_kw": None, "energy_residual_kwh": None,
               "power_residual_kw": None, "overlap_kw": None,
               "q": int(q), "guard": bool(guard), "formulation": formulation,
@@ -220,8 +221,7 @@ def solve_capacity(model, q, guard=True):
     objective = np.zeros(nv); objective[Midx] = 1.
     start = perf_counter()
     ans = linprog(objective, A_ub=ub.matrix(nv), b_ub=ub.rhs,
-                  A_eq=eq.matrix(nv), b_eq=eq.rhs, bounds=bounds,
-                  method="highs", options=SOLVER_OPTIONS)
+                  A_eq=eq.matrix(nv), b_eq=eq.rhs, bounds=bounds)
     elapsed = perf_counter() - start
     c = ans.x[:nz].reshape(n, nt) if ans.success else None
     d = ans.x[nz:2*nz].reshape(n, nt) if ans.success else None
@@ -247,8 +247,7 @@ def solve_reservation(model):
     objective = np.zeros(nz + 1); objective[-1] = 1.
     start = perf_counter()
     ans = linprog(objective, A_ub=ub.matrix(nz + 1), b_ub=ub.rhs,
-                  A_eq=eq.matrix(nz + 1), b_eq=eq.rhs, bounds=bounds,
-                  method="highs", options=SOLVER_OPTIONS)
+                  A_eq=eq.matrix(nz + 1), b_eq=eq.rhs, bounds=bounds)
     elapsed = perf_counter() - start
     c = ans.x[:nz].reshape(n, nt) if ans.success else None
     d = np.zeros((n, nt)) if ans.success else None
@@ -478,7 +477,7 @@ def compute_certificate(model, cut, q):
                 ub.add([i * nt + t, theta0 + t, r0 + i * nt + t], [1, -1, -1], 0.)
         bounds = [(0., float(v)) for v in power.ravel()] + [(0., None)] * (nv - nz)
         ans = linprog(objective, A_ub=ub.matrix(nv), b_ub=ub.rhs,
-                      bounds=bounds, method="highs", options=SOLVER_OPTIONS)
+                      bounds=bounds)
         if not ans.success:
             raise RuntimeError(f"Credit LP failed: {ans.message}")
         credit = max(0., -float(ans.fun))

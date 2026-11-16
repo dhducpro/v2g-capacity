@@ -27,7 +27,10 @@ from zoneinfo import ZoneInfo
 
 import numpy as np
 import scipy
-from scipy.optimize import linprog
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from cplex_lp import linprog
 from scipy.sparse import coo_matrix
 
 HERE = Path(__file__).resolve().parent
@@ -168,12 +171,11 @@ def solve(model, q, guard=True, endpoints=(1., 1.5)):
                   (model["availability"] * model["Pd"][:, None]).ravel(), np.inf]
     bounds = [(0, float(x)) if np.isfinite(x) else (0, None) for x in upper]
     objective = np.zeros(nv); objective[-1] = 1
-    ans = linprog(objective, A_ub=matrix, b_ub=rhs, bounds=bounds,
-                  method="highs", options={"primal_feasibility_tolerance": 1e-8, "dual_feasibility_tolerance": 1e-8})
+    ans = linprog(objective, A_ub=matrix, b_ub=rhs, bounds=bounds)
     full_charge = model["eta_c"] * model["Pc"] * (model["availability"] @ duration)
     deficits = np.maximum(0, model["Etarget"] - model["E0"] - full_charge)
     result = {"status": "optimal" if ans.success else "infeasible" if ans.status == 2 else "solver_error",
-              "scipy_status": int(ans.status), "M_kw": None,
+              "cplex_status": ans.native_status, "M_kw": None,
               "individual_charge_deficit_kwh": float(np.max(deficits)),
               "energy_residual_kwh": None, "power_residual_kw": None, "overlap_kw": None,
               "minimum_subinterval_hours": float(np.min(duration)), "interval_count": nt}

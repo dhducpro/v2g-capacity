@@ -12,7 +12,10 @@ import json
 from pathlib import Path
 
 import numpy as np
-from scipy.optimize import linprog
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from cplex_lp import linprog
 
 HERE = Path(__file__).resolve().parent
 
@@ -52,7 +55,7 @@ def enumerated_capacity(m, q):
     bounds.append((0, None))
     objective = np.zeros(nv)
     objective[-1] = 1
-    result = linprog(objective, A_ub=np.asarray(rows), b_ub=limits, bounds=bounds, method="highs")
+    result = linprog(objective, A_ub=np.asarray(rows), b_ub=limits, bounds=bounds)
     if not result.success:
         raise AssertionError(result.message)
     return float(result.fun)
