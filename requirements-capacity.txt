@@ -1,0 +1,6 @@
+numpy==2.3.5
+scipy==1.17.0
+matplotlib==3.10.8
+
+# IANA zone data for Windows case reconstruction
+tzdata; platform_system == "Windows"

@@ -1,0 +1,7 @@
+__pycache__/
+*.py[cod]
+.venv/
+.ruff_cache/
+outputs/
+replication/independent_validation/recomputed/
+replication/independent_validation/weighted_implementation_checks.json
