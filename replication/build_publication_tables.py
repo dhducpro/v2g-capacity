@@ -3,6 +3,8 @@
 import csv
 import hashlib
 import json
+from itertools import groupby
+from operator import itemgetter
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -27,7 +29,6 @@ for q in range(7):
     positive = sum(v > 1e-6 for v in values)
     certified = sum(q >= int(r["cut_collapse_q"]) for r in selected)
     mean, maximum = sum(values) / 24, max(values)
-    lines.append(f"{q} & {positive} & {certified} & {mean:.4f} & {maximum:.4f}" + r"\\")
     summary.append(
         {
             "q": q,
@@ -38,6 +39,11 @@ for q in range(7):
         }
     )
 assert [r["positive"] for r in summary] == [13, 3, 2, 2, 0, 0, 0]
+statistics = itemgetter("positive", "certified_zero", "mean_saving_kw", "maximum_saving_kw")
+for (positive, certified, mean, maximum), group in groupby(summary, key=statistics):
+    levels = [row["q"] for row in group]
+    label = str(levels[0]) if len(levels) == 1 else f"{levels[0]}--{levels[-1]}"
+    lines.append(f"{label} & {positive} & {certified} & {mean:.4f} & {maximum:.4f}" + r"\\")
 lines += [r"\bottomrule", r"\end{tabular}"]
 (OUT / "publication_frontier_table.tex").write_text("\n".join(lines) + "\n")
 

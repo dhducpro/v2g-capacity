@@ -1,10 +1,7 @@
 """Build the five journal figures from frozen records and proved formulas.
 
-This presentation-only builder does not call an optimizer, sample data, or
-change any retained result.  The PDF canvas is 178 mm wide so that the stated
-font sizes are the final sizes when placed at full journal text width.
-Every plotted series, the numerical display rule, and source digests are
-recorded in outputs/presentation_figure_audit.json.
+Publication widths are 178 mm for two columns and 86 mm for one column.
+The plotted values and source digests are in outputs/presentation_figure_audit.json.
 """
 
 from __future__ import annotations
@@ -53,7 +50,6 @@ def displayed_saving(value: str | float) -> float:
 
 
 def finish(fig: plt.Figure, stem: str) -> None:
-    # Keep the 178 mm print width.
     fig.savefig(
         OUT / f"{stem}.pdf",
         metadata={
@@ -368,16 +364,16 @@ def make_w206(case: dict, cuts: list[dict], frontier: list[dict]) -> dict:
     )
     assert abs(reservation - retained_reservation) < 1e-10
 
-    fig, axes = plt.subplots(1, 2, figsize=(WIDTH, 3.45), gridspec_kw={"width_ratios": [1.05, 1]})
-    fig.subplots_adjust(left=0.085, right=0.985, top=0.895, bottom=0.245, wspace=0.33)
-    axes[0].axvspan(13.5, 15.5, facecolor=LIGHT, zorder=0)
+    fig, ax = plt.subplots(figsize=(86 / 25.4, 2.50))
+    fig.subplots_adjust(left=0.13, right=0.98, top=0.98, bottom=0.30)
+    ax.axvspan(13.5, 15.5, facecolor=LIGHT, zorder=0)
     available_slots = []
     for i, active in enumerate(availability):
         connected = np.flatnonzero(active) + 1
         available_slots.append(connected.tolist())
         assert np.array_equal(connected, np.arange(connected[0], connected[-1] + 1))
-        color = TEAL if i < 4 else ORANGE
-        axes[0].barh(
+        color = TEAL if donors[i].any() else ORANGE
+        ax.barh(
             i + 1,
             len(connected),
             left=connected[0] - 0.5,
@@ -387,8 +383,8 @@ def make_w206(case: dict, cuts: list[dict], frontier: list[dict]) -> dict:
             zorder=2,
         )
     for x in (13.5, 15.5):
-        axes[0].axvline(x, color=GRAY, linestyle="--", linewidth=0.9, zorder=3)
-    axes[0].text(
+        ax.axvline(x, color=GRAY, linestyle="--", linewidth=0.9, zorder=3)
+    ax.text(
         14.5,
         0.35,
         r"$S=\{14,15\}$",
@@ -397,49 +393,25 @@ def make_w206(case: dict, cuts: list[dict], frontier: list[dict]) -> dict:
         fontsize=8,
         bbox={"facecolor": "white", "edgecolor": "none", "pad": 1.2},
     )
-    axes[0].set(
+    ax.set(
         xlim=(8.45, 20.55),
         ylim=(6.65, -0.02),
         xticks=[9, 11, 13, 15, 17, 19],
         yticks=range(1, 7),
         yticklabels=[f"EV {i}" for i in range(1, 7)],
-        xlabel="Hourly slot (one-based)",
+        xlabel="Hourly slot",
     )
-    panel(axes[0], "(a)")
-
-    axes[1].barh(q, credit, height=0.55, color=TEAL, alpha=0.85, zorder=3)
-    for qi, value in zip(q, credit):
-        axes[1].text(value + 0.65, qi, f"{value:d}", ha="left", va="center", fontsize=8)
-    axes[1].axvline(required.sum(), color=ORANGE, linestyle="--", linewidth=1.3, zorder=4)
-    axes[1].text(
-        required.sum() + 0.8,
-        5.4,
-        f"Required charging\n{required.sum():.3f} kWh",
-        color=ORANGE,
-        va="center",
-        fontsize=8,
-    )
-    axes[1].set(
-        xlim=(0, 35.5),
-        ylim=(6.65, -0.65),
-        yticks=q,
-        xticks=[0, 8, 16, 24, 32],
-        ylabel=r"Protected withdrawals $q$",
-        xlabel=r"Cut-credit bound $R_q(S)$ (kWh)",
-    )
-    tidy(axes[1], axis="x")
-    panel(axes[1], "(b)")
     fig.legend(
         handles=[
-            Patch(facecolor=TEAL, label="Positive donor allowance"),
-            Patch(facecolor=ORANGE, label=r"Mandatory charging in $S$"),
+            Patch(facecolor=TEAL, label="Positive allowance"),
+            Patch(facecolor=ORANGE, label=r"Must charge in $S$"),
         ],
         loc="lower center",
-        bbox_to_anchor=(0.5, 0.035),
+        bbox_to_anchor=(0.51, 0.035),
         ncol=2,
         frameon=False,
-        handlelength=1.5,
-        columnspacing=2,
+        handlelength=1.4,
+        columnspacing=1.0,
     )
     finish(fig, "presentation_w206")
     return {
@@ -720,7 +692,7 @@ def main() -> None:
     audit = {
         "scope": "Presentation-only rebuild; frozen data and proved formulas; no optimization, sampling, or input mutation.",
         "optimizer_calls": 0,
-        "canvas_width_mm": 178,
+        "canvas_width_mm": {"two_column": 178, "presentation_w206": 86},
         "font_sizes_pt": {
             "axis_labels": 9,
             "ticks": 8.5,

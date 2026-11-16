@@ -106,10 +106,14 @@ def main():
     write_csv(OUT / "certificate_threshold_comparison.csv", comparison)
     write_csv(OUT / "certificate_positive_bound_ratios.csv", ratios)
     (OUT / "certificate_comparison_summary.json").write_text(json.dumps(payload, indent=2) + "\n")
+    show_separate = any(r["retained_cut_sufficient_q"] != r["observed_first_zero_q"] for r in comparison)
+    columns = "lrrr" if show_separate else "lrr"
+    thresholds = r"$\widehat q_{\rm cut}$ & $q_{\rm zero}$" if show_separate else r"$\widehat q_{\rm cut}=q_{\rm zero}$"
+    heading = r"Fleet & $q_{\rm occ}$ & " + thresholds
     lines = [
-        r"\begin{tabular}{lrrr@{\qquad}lrrr}",
+        r"\begin{tabular}{" + columns + r"@{\qquad}" + columns + "}",
         r"\toprule",
-        r"Fleet & $q_{\rm occ}$ & $\widehat q_{\rm cut}$ & $q_{\rm zero}$ & Fleet & $q_{\rm occ}$ & $\widehat q_{\rm cut}$ & $q_{\rm zero}$\\",
+        heading + " & " + heading + r"\\",
         r"\midrule",
     ]
     for left, right in zip(comparison[:12], comparison[12:]):
@@ -119,8 +123,9 @@ def main():
                 row["fleet"],
                 str(row["occupancy_sufficient_q"]),
                 str(row["retained_cut_sufficient_q"]),
-                str(row["observed_first_zero_q"]),
             ]
+            if show_separate:
+                parts.append(str(row["observed_first_zero_q"]))
         lines.append(" & ".join(parts) + r"\\")
     lines += [r"\bottomrule", r"\end{tabular}"]
     (OUT / "certificate_comparison_table.tex").write_text("\n".join(lines) + "\n")

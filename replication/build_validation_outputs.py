@@ -83,12 +83,15 @@ def group_summary(cases, frontier, cohort, n):
 
 
 def comparison_table(groups):
+    show_matches = any(g["cut_actual_threshold_matches"] != g["contexts"] for g in groups)
+    numeric_columns = 7 if show_matches else 6
+    match_heading = r" & \shortstack{Threshold\\matches}" if show_matches else ""
     lines = [
-        r"\begin{tabular}{@{}lrrrrrrr@{}}",
+        r"\begin{tabular}{@{}l" + "r" * numeric_columns + r"@{}}",
         r"\toprule",
-        r" & & & \multicolumn{2}{c}{Positive savings} & \multicolumn{2}{c}{Certificate} & \\",
-        r"\cmidrule(lr){4-5}\cmidrule(lr){6-7}",
-        r"Cohort & $N$ & Instances & $q=0$ & $q=1$ & \shortstack{Threshold\\matches} & \shortstack{Sharper than\\occupancy} & $q_{\rm zero}$ range\\",
+        r" & & & \multicolumn{2}{c}{Positive savings}" + " &" * (numeric_columns - 4) + r" \\",
+        r"\cmidrule(lr){4-5}",
+        r"Cohort & $N$ & Cases & $q=0$ & $q=1$ & \shortstack{Below occupancy\\threshold} & $q_{\rm zero}$ range" + match_heading + r"\\",
         r"\midrule",
     ]
     previous = None
@@ -97,11 +100,12 @@ def comparison_table(groups):
             lines.append(r"\addlinespace[2pt]")
         low, high = row["q_zero_min"], row["q_zero_max"]
         interval = "--" if low is None else str(low) if low == high else f"{low}--{high}"
+        label = LABELS[row["cohort"]] if previous != row["cohort"] else ""
+        matches = f" & {row['cut_actual_threshold_matches']}" if show_matches else ""
         lines.append(
-            f"{LABELS[row['cohort']]} & {row['N']} & {row['contexts']} & "
+            f"{label} & {row['N']} & {row['contexts']} & "
             f"{row['positive_q0']} & {row['positive_q1']} & "
-            f"{row['cut_actual_threshold_matches']}/{row['contexts']} & "
-            f"{row['strict_occupancy_improvement']}/{row['contexts']} & {interval}" + r"\\"
+            f"{row['strict_occupancy_improvement']} & {interval}{matches}" + r"\\"
         )
         previous = row["cohort"]
     lines.extend([r"\bottomrule", r"\end{tabular}"])
@@ -110,15 +114,16 @@ def comparison_table(groups):
 
 def contract_table(rows):
     selected = sorted((r for r in rows if int(r["q"]) == 1), key=lambda r: float(r["H_kwh"]))
-    if len(selected) != 5:
-        raise AssertionError("Expected the five frozen headroom values at q=1")
-    lines = [
-        r"\begin{tabular}{@{}rrrr@{}}",
-        r"\toprule",
-        r"$H$ (kWh) & \shortstack{Fixed charging\\(kW)} & \shortstack{Cancel own recharge\\(kW)} & \shortstack{Capacity cost\\(kW)}\\",
-        r"\midrule",
-    ]
+    recourse_values = {f"{float(r['restricted_recourse_M_kw']):.3f}" for r in selected}
+    common_capacity = len(recourse_values) == 1
+    columns = "rr" if common_capacity else "rrrr"
+    headings = [r"Headroom $H$ (kWh)"]
+    if not common_capacity:
+        headings.extend([r"\shortstack{Fixed charging\\(kW)}", r"\shortstack{Cancel own recharge\\(kW)}"])
+    headings.append("Extra capacity (kW)")
+    lines = [r"\begin{tabular}{@{}" + columns + r"@{}}", r"\toprule", " & ".join(headings) + r"\\", r"\midrule"]
     audited = []
+    headrooms_by_result = {}
     for row in selected:
         h, fixed, adapted, cost = (
             float(row[k])
@@ -126,7 +131,9 @@ def contract_table(rows):
         )
         if abs(fixed - adapted - cost) > 1e-9 or cost < -TOL:
             raise AssertionError("Contract cost differs from its saved component capacities")
-        lines.append(f"{h:.2f} & {fixed:.3f} & {adapted:.3f} & {max(0.0, cost):.3f}" + r"\\")
+        capacities = () if common_capacity else (f"{fixed:.3f}", f"{adapted:.3f}")
+        result = (*capacities, f"{max(0.0, cost):.3f}")
+        headrooms_by_result.setdefault(result, []).append(f"{h:.2f}")
         audited.append(
             {
                 "H_kwh": h,
@@ -136,7 +143,13 @@ def contract_table(rows):
                 "contract_cost_kw": cost,
             }
         )
+    for result, headrooms in headrooms_by_result.items():
+        lines.append(" & ".join([", ".join(headrooms), *result]) + r"\\")
     lines.extend([r"\bottomrule", r"\end{tabular}"])
+    if common_capacity:
+        capacity = next(iter(recourse_values))
+        lines.append(r"\par\smallskip{\small Allowing the withdrawing donor to cancel its own recharge requires "
+                     + f"{capacity}~kW at every headroom tested." + "}")
     (OUT / "contract_cost_table.tex").write_text("\n".join(lines) + "\n")
     return audited
 

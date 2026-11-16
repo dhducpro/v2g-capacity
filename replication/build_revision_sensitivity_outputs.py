@@ -15,22 +15,34 @@ OUT = ROOT / "outputs"
 OUT.mkdir(exist_ok=True)
 s = json.loads((HERE / "sensitivity_summary.json").read_text())
 rows = list(csv.DictReader((HERE / "timing_energy_frontiers.csv").open()))
+last_positive_q = max(
+    (q for r in s["factorial_results"] for q, n in enumerate(r["positive_saving_counts_q0_to_q6"]) if n),
+    default=0,
+)
+level_count = last_positive_q + 1
 lines = [
-    r"\begin{tabular}{llrrrrrr}",
+    r"\begin{tabular}{@{}ll" + "r" * (1 + level_count) + r"@{}}",
     r"\toprule",
-    r"Timing & Battery increment & Feasible fleets & $q=0$ & $q=1$ & $q=2$ & $q=3$ & Each $q\ge4$\\",
+    rf" & & & \multicolumn{{{level_count}}}{{c}}{{Fleets with positive savings}}\\",
+    rf"\cmidrule(lr){{4-{3 + level_count}}}",
+    "Timing & Battery increment & Feasible (of 24) & "
+    + " & ".join(f"$q={q}$" for q in range(level_count)) + r"\\",
     r"\midrule",
 ]
+target_labels = {
+    "reported_as_battery_increment": r"$d_i$",
+    "grid_consistent_increment": r"$\eta_i^c d_i$",
+}
+grouped_targets = {}
 for r in s["factorial_results"]:
     timing = "Hourly outward" if r["timing"] == "hourly_outward" else "Exact events"
-    target = (
-        r"$d_i$" if r["energy_mapping"] == "reported_as_battery_increment" else r"$\eta_i^c d_i$"
-    )
     ns = r["positive_saving_counts_q0_to_q6"]
-    assert len(set(ns[4:])) == 1
+    key = (timing, r["feasible_fleet_count"], tuple(ns[:level_count]))
+    grouped_targets.setdefault(key, []).append(target_labels[r["energy_mapping"]])
+for (timing, feasible, counts), targets in grouped_targets.items():
     lines.append(
-        f"{timing} & {target} & {r['feasible_fleet_count']}/24 & "
-        + " & ".join(str(n) for n in ns[:4] + [ns[4]])
+        f"{timing} & {' or '.join(targets)} & {feasible} & "
+        + " & ".join(str(n) for n in counts)
         + r"\\"
     )
 lines += [r"\bottomrule", r"\end{tabular}"]
