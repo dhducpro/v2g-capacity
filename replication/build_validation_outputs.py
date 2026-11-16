@@ -17,9 +17,9 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
-from build_presentation_figures import BLUE, GRAY, INK, ORANGE, WIDTH, tidy
+from build_presentation_figures import BLUE, GRAY, INK, ORANGE, TEAL, WIDTH, panel, tidy
 from matplotlib.lines import Line2D
-from matplotlib.ticker import NullLocator, PercentFormatter
+from matplotlib.ticker import FixedLocator, NullLocator, ScalarFormatter
 
 ROOT = Path(__file__).resolve().parents[1]
 STUDY = ROOT / "replication" / "independent_validation"
@@ -185,82 +185,146 @@ def ratio_records(frontier):
 
 
 def make_figure(cases, ratios):
-    fig, (threshold_ax, ratio_ax) = plt.subplots(1, 2, figsize=(WIDTH, 3.02))
-    fig.subplots_adjust(left=0.102, right=0.97, top=0.78, bottom=0.19, wspace=0.51)
+    fig, axes = plt.subplots(1, 2, figsize=(WIDTH, 3.25))
+    fig.subplots_adjust(left=0.085, right=0.985, top=0.88, bottom=0.24, wspace=0.38)
     threshold_records, centers = [], []
     offset = 0
     for n in (6, 12, 24):
-        group = [r for r in cases if r["cohort"] == "temporal" and int(r["N"]) == n]
+        group = sorted(
+            (r for r in cases if r["cohort"] == "temporal" and int(r["N"]) == n),
+            key=lambda r: r["case"],
+        )
         if len(group) != 12:
             raise AssertionError((n, "Expected twelve temporal contexts"))
-        for row in group:
-            cut, actual, occupancy = (integer(row[k]) for k in ("q_certificate", "q_zero", "q_occupancy"))
+        xs = np.arange(len(group), dtype=float) + offset
+        for x, row in zip(xs, group):
+            cut, actual, occupancy = (
+                integer(row[k]) for k in ("q_certificate", "q_zero", "q_occupancy")
+            )
             if cut is None or occupancy is None or cut != actual:
-                raise AssertionError((row["case"], "Temporal cut/LP equality no longer holds; revise figure labels"))
-        group.sort(key=lambda r: (int(r["q_certificate"]), int(r["q_occupancy"]), r["case"]))
-        xs = np.arange(len(group)) + offset
-        cut = np.array([int(r["q_certificate"]) for r in group])
-        occupancy = np.array([int(r["q_occupancy"]) for r in group])
-        threshold_ax.vlines(xs, cut / n, occupancy / n, color="#ABB8BE", linewidth=0.85)
-        threshold_ax.scatter(xs, occupancy / n, marker="s", s=17, facecolors="white",
-                             edgecolors=ORANGE, linewidths=0.9, zorder=3)
-        threshold_ax.scatter(xs, cut / n, s=10, color=BLUE, linewidths=0, zorder=4)
-        for x, row, q_cut, q_occ in zip(xs, group, cut.tolist(), occupancy.tolist()):
-            threshold_records.append({
-                "case": row["case"], "N": n, "x": float(x), "q_cut": q_cut, "q_zero": q_cut,
-                "q_occupancy": q_occ, "cut_fraction": q_cut / n, "occupancy_fraction": q_occ / n,
-            })
+                raise AssertionError(
+                    (row["case"], "Temporal cut/LP equality no longer holds; revise figure labels")
+                )
+            axes[0].plot([x, x], [cut / n, occupancy / n], color="#B6BEC3", linewidth=0.9, zorder=1)
+            axes[0].scatter(
+                [x],
+                [occupancy / n],
+                marker="s",
+                s=20,
+                facecolors="white",
+                edgecolors=ORANGE,
+                linewidths=0.9,
+                zorder=3,
+            )
+            axes[0].scatter([x], [cut / n], marker="o", s=12, color=BLUE, zorder=4)
+            threshold_records.append(
+                {
+                    "case": row["case"],
+                    "N": n,
+                    "x": float(x),
+                    "q_cut": cut,
+                    "q_zero": actual,
+                    "q_occupancy": occupancy,
+                    "cut_fraction": cut / n,
+                    "occupancy_fraction": occupancy / n,
+                }
+            )
         centers.append(float(xs.mean()))
         offset += len(group) + 3
-    threshold_ax.set(xlim=(-1, offset - 3), ylim=(-0.045, 1.045), xticks=centers,
-                     xticklabels=["6 EVs", "12 EVs", "24 EVs"], yticks=[0, 0.25, 0.5, 0.75, 1],
-                     xlabel="12 fleets per group", ylabel=r"Withdrawal threshold $q/N$")
-    threshold_ax.yaxis.set_major_formatter(PercentFormatter(xmax=1, decimals=0))
-    threshold_ax.legend(handles=[
-        Line2D([], [], marker="o", color=BLUE, linestyle="none", markersize=4, label="Certified / observed"),
-        Line2D([], [], marker="s", markerfacecolor="white", markeredgecolor=ORANGE,
-               linestyle="none", markersize=4, label="Occupancy only"),
-    ], loc="lower left", bbox_to_anchor=(-0.02, 1.005), borderaxespad=0, ncol=2,
-       frameon=False, fontsize=8, columnspacing=0.6, handletextpad=0.2)
-    threshold_ax.set_title("(a)  When savings disappear", loc="left", y=1.18, fontsize=9, fontweight="bold")
-    tidy(threshold_ax)
+    axes[0].set(
+        xlim=(-1, offset - 3),
+        ylim=(-0.035, 1.035),
+        ylabel=r"Withdrawal threshold $q/N$",
+        xticks=centers,
+        xticklabels=[r"$N=6$", r"$N=12$", r"$N=24$"],
+        yticks=[0, 0.25, 0.5, 0.75, 1],
+    )
+    axes[0].legend(
+        handles=[
+            Line2D(
+                [], [], marker="o", color=BLUE, linestyle="none", markersize=4, label="Certified / observed"
+            ),
+            Line2D(
+                [],
+                [],
+                marker="s",
+                markerfacecolor="white",
+                markeredgecolor=ORANGE,
+                linestyle="none",
+                markersize=4.5,
+                label="Occupancy only",
+            ),
+        ],
+        loc="upper center",
+        bbox_to_anchor=(0.5, -0.17),
+        ncol=2,
+        frameon=False,
+        fontsize=8,
+        columnspacing=0.9,
+        handletextpad=0.5,
+    )
+    panel(axes[0], "(a)", "When savings disappear")
+    tidy(axes[0])
 
     ratio_summary = {}
-    for position, cohort in enumerate(COHORTS):
+    for position, (cohort, color) in enumerate(zip(COHORTS, (GRAY, BLUE, TEAL))):
         rows = ratios[cohort]
         values = np.array([r["display_ratio"] for r in rows])
+        if not len(rows) or values.max() > 500:
+            raise AssertionError((cohort, "Figure range must include every positive-bound ratio"))
+        xs = np.array([position + r["jitter"] for r in rows])
+        axes[1].scatter(
+            xs, values, s=11, color=color, alpha=0.58, edgecolors="none", zorder=3, clip_on=False
+        )
+        median = float(np.median(values))
+        axes[1].plot(
+            [position - 0.20, position + 0.20],
+            [median, median],
+            color=INK,
+            linewidth=1.8,
+            zorder=5,
+            solid_capstyle="butt",
+            clip_on=False,
+        )
         raw = np.array([r["ratio"] for r in rows])
-        offsets = [position + r["jitter"] * 0.55 for r in rows]
-        ratio_ax.scatter(values, offsets, s=12, color=BLUE, alpha=0.52, linewidths=0, zorder=3)
-        median = float(np.median(raw))
-        ratio_ax.vlines(max(1, median), position - 0.15, position + 0.15,
-                        color=INK, linewidth=1.8, zorder=4)
-        ratio_ax.annotate(f"Median {median:.2f}×", (max(1, median), position + 0.17),
-                          xytext=(0, -3), textcoords="offset points", va="top", fontsize=8)
         ratio_summary[cohort] = {
-            "count": len(rows), "min": float(raw.min()), "median": median, "max": float(raw.max()),
+            "count": len(rows),
+            "min": float(raw.min()),
+            "median": float(np.median(raw)),
+            "max": float(raw.max()),
             "plotted_records": rows,
         }
-    maximum = max(ratios["bridge"], key=lambda r: r["ratio"])
-    outlier = (maximum["display_ratio"], maximum["jitter"] * 0.55)
-    ratio_ax.plot(*outlier, marker="o", markersize=4.2, markerfacecolor="white",
-                  markeredgecolor=INK, markeredgewidth=0.9, zorder=5)
-    ratio_ax.annotate(f"{maximum['case']} ({maximum['ratio']:.1f}×)", outlier,
-                      xytext=(0, 7), textcoords="offset points", ha="right", va="bottom", fontsize=8)
-    ratio_ax.set_xscale("log")
-    ratio_ax.set(xlim=(0.76, max(500, max(r["max"] for r in ratio_summary.values()) * 1.25)),
-                 ylim=(2.50, -0.52), yticks=range(len(COHORTS)),
-                 yticklabels=[f"{LABELS[c]}\n({len(ratios[c])})" for c in COHORTS],
-                 xlabel="Upper bound / capacity saving")
-    ratio_ax.set_xticks([1, 10, 100], labels=["1×", "10×", "100×"])
-    ratio_ax.xaxis.set_minor_locator(NullLocator())
-    ratio_ax.tick_params(axis="y", length=0)
-    ratio_ax.spines["left"].set_visible(False)
-    ratio_ax.axvline(1, color=GRAY, linewidth=0.8, linestyle=(0, (2, 2)), zorder=1)
-    ratio_ax.set_title("(b)  When savings remain", loc="left", y=1.18, fontsize=9, fontweight="bold")
-    ratio_ax.text(0, 1.02, "1× = bound equals saving", transform=ratio_ax.transAxes,
-                  fontsize=8, ha="left", va="bottom", color=GRAY)
-    tidy(ratio_ax, axis="x")
+    bridge_values = ratios["bridge"]
+    maximum = max(bridge_values, key=lambda r: r["ratio"])
+    axes[1].annotate(
+        f"{maximum['case']} ({maximum['ratio']:.1f}×)",
+        xy=(maximum["jitter"], maximum["display_ratio"]),
+        xytext=(5, 0),
+        textcoords="offset points",
+        fontsize=8,
+        color=INK,
+        ha="left",
+        va="center",
+    )
+    axes[1].set_yscale("log")
+    axes[1].set(
+        xlim=(-0.5, 2.5),
+        ylim=(0.8, 500),
+        xticks=[0, 1, 2],
+        xticklabels=[f"{LABELS[c]}\n({len(ratios[c])} values)" for c in COHORTS],
+        ylabel="Upper bound / saving",
+    )
+    axes[1].yaxis.set_major_locator(FixedLocator([1, 10, 100]))
+    axes[1].yaxis.set_major_formatter(ScalarFormatter())
+    axes[1].yaxis.set_minor_locator(NullLocator())
+    axes[1].legend(
+        handles=[Line2D([], [], color=INK, linewidth=1.8, label="Median")],
+        loc="upper right",
+        frameon=False,
+        fontsize=8,
+    )
+    panel(axes[1], "(b)", "Size of the upper bound")
+    tidy(axes[1])
     fig.savefig(
         OUT / "presentation_validation.pdf",
         metadata={
@@ -275,7 +339,7 @@ def make_figure(cases, ratios):
         "temporal_threshold_records": threshold_records,
         "positive_bound_ratios": ratio_summary,
         "ratio_display_rule": "Ratios below1 only within1e-8 floating tolerance are drawn at1; every positive-saving observation is plotted without upper clipping",
-        "jitter_rule": "Within each cohort, vertical offset is 0.55 times the saved deterministic jitter; the ratio coordinate is unchanged.",
+        "jitter_rule": "SHA256(cohort|case|q), first64bits mapped to[-0.22,0.22]; deterministic and independent of ratio",
         "statistics": "Descriptive medians only; repeated q levels share fleets, and synthetic variants share base configurations; no confidence intervals",
     }
 
