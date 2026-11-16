@@ -134,7 +134,7 @@ def main():
     for name, value in sources.items():
         if frozen["source_sha256"][name] != value:
             raise AssertionError(f"Frozen source hash mismatch: {name}")
-    selected_records = [{"path":str(p.relative_to(HERE)),"sha256":digest(p)} for p in selected]
+    selected_records = [{"path":p.relative_to(HERE).as_posix(),"sha256":digest(p)} for p in selected]
     for record in selected_records:
         if frozen["input_sha256"][record["path"]] != record["sha256"]:
             raise AssertionError(f"Frozen input hash mismatch: {record['path']}")
@@ -148,7 +148,11 @@ def main():
     plan_path = HERE / "generalized_implementation_audit_protocol.json"
     if plan_path.exists():
         existing = json.loads(plan_path.read_text())
-        for key in ("script_sha256", "sources_sha256", "selected_inputs"):
+        if existing["script_sha256"] != plan["script_sha256"]:
+            revision = json.loads((HERE / "audit_source_revision.json").read_text())
+            if (existing["script_sha256"], plan["script_sha256"]) != (revision["archived_sha256"], revision["portable_sha256"]):
+                raise AssertionError("Unrecognized audit source revision")
+        for key in ("sources_sha256", "selected_inputs"):
             if existing[key] != plan[key]:
                 raise AssertionError(f"Audit protocol changed: {key}; preserve it and record an amendment")
         plan = existing
@@ -206,7 +210,8 @@ def main():
     report = {"status":"PASS" if unchanged and not errors and all(r["pass"] for r in comparisons)
               and all(r["pass_check"] for r in credits) else "FAIL",
               "scope":plan["study"],"completed_utc":datetime.now(timezone.utc).isoformat(),
-              "protocol":plan,"frozen_sources_and_inputs_unchanged":unchanged,
+              "protocol":plan,"executed_audit_sha256":digest(Path(__file__)),
+              "frozen_sources_and_inputs_unchanged":unchanged,
               "capacity_comparison_pairs":len(comparisons),
               "credit_comparisons":sum(r["status"]=="compared" for r in credits),
               "unavailable_cuts_retained":sum(r["status"]=="unavailable_cut_retained" for r in credits),

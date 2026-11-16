@@ -1,15 +1,12 @@
-# V2G capacity under discharge withdrawals
+# V2G Capacity
 
-This code computes the minimum station import capacity when up to `q` vehicles cancel their planned discharges and charging stays fixed.
+Station capacity under EV discharge withdrawals, using [Caltech ACN-Data](https://ev.caltech.edu/dataset) and synthetic fleets.
 
-The study uses charging sessions from [Caltech ACN-Data](https://ev.caltech.edu/dataset) and synthetic fleets. The example uses six simulated vehicles. Full replication requires the separate study data package.
+Open [experiments.ipynb](experiments.ipynb), place the separate `study-data.zip` beside it, and select **Run All**. Results, figures and logs are saved under `runs/`.
 
-## Run the example
-
-With Python 3.12, run:
+For the six-vehicle example:
 
 ```sh
 python -m pip install -r requirements-capacity.txt
 python solve_fleet.py examples/fleet.json --q 1
-python check_capacity.py
 ```

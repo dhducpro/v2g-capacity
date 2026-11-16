@@ -1,0 +1,5 @@
+{
+  "change": "Serialize relative case paths with forward slashes on all platforms. Solver hashes, sample selection and tolerances are preserved.",
+  "archived_sha256": "f18678b8e4257bf8f2c1db14159a5ae9b1e415e65c6c0c7010c6b6d94811d814",
+  "portable_sha256": "8f88f2dee433b57a73b6de985badcbdce98b0a9f56ef21f7ed1c1718af6f2207"
+}
