@@ -7,3 +7,4 @@ replication/independent_validation/run_validation.py -text
 replication/independent_validation/weighted_capacity.py -text
 replication/sensitivity_checks/time_guard_sensitivity.py -text
 examples/fleet.json -text
+study-data.zip binary

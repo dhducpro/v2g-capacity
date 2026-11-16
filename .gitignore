@@ -6,5 +6,4 @@ outputs/
 replication/independent_validation/recomputed/
 replication/independent_validation/weighted_implementation_checks.json
 /runs/
-/study-data.zip
 /.ipynb_checkpoints/
