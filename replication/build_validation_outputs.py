@@ -234,7 +234,7 @@ def make_figure(cases, ratios):
     axes[0].set(
         xlim=(-1, offset - 3),
         ylim=(-0.035, 1.035),
-        ylabel="Withdrawal fraction",
+        ylabel=r"Withdrawal threshold $q/N$",
         xticks=centers,
         xticklabels=[r"$N=6$", r"$N=12$", r"$N=24$"],
         yticks=[0, 0.25, 0.5, 0.75, 1],
@@ -242,7 +242,7 @@ def make_figure(cases, ratios):
     axes[0].legend(
         handles=[
             Line2D(
-                [], [], marker="o", color=BLUE, linestyle="none", markersize=4, label="Cut = LP"
+                [], [], marker="o", color=BLUE, linestyle="none", markersize=4, label="Certified / observed"
             ),
             Line2D(
                 [],
@@ -252,7 +252,7 @@ def make_figure(cases, ratios):
                 markeredgecolor=ORANGE,
                 linestyle="none",
                 markersize=4.5,
-                label="Occupancy",
+                label="Occupancy only",
             ),
         ],
         loc="upper center",
@@ -260,10 +260,10 @@ def make_figure(cases, ratios):
         ncol=2,
         frameon=False,
         fontsize=8,
-        columnspacing=1.5,
+        columnspacing=0.9,
         handletextpad=0.5,
     )
-    panel(axes[0], "(a)", "Temporal thresholds")
+    panel(axes[0], "(a)", "When savings disappear")
     tidy(axes[0])
 
     ratio_summary = {}
@@ -297,14 +297,14 @@ def make_figure(cases, ratios):
     bridge_values = ratios["bridge"]
     maximum = max(bridge_values, key=lambda r: r["ratio"])
     axes[1].annotate(
-        f"{maximum['ratio']:.1f}",
+        f"{maximum['case']} ({maximum['ratio']:.1f}×)",
         xy=(maximum["jitter"], maximum["display_ratio"]),
-        xytext=(4, 4),
+        xytext=(5, 0),
         textcoords="offset points",
-        fontsize=7.5,
+        fontsize=8,
         color=INK,
         ha="left",
-        va="bottom",
+        va="center",
     )
     axes[1].set_yscale("log")
     axes[1].set(
@@ -312,9 +312,9 @@ def make_figure(cases, ratios):
         ylim=(0.8, 500),
         xticks=[0, 1, 2],
         xticklabels=[f"{LABELS[c]}\n({len(ratios[c])} values)" for c in COHORTS],
-        ylabel="Bound / positive saving",
+        ylabel="Upper bound / saving",
     )
-    axes[1].yaxis.set_major_locator(FixedLocator([1, 10, 100, 500]))
+    axes[1].yaxis.set_major_locator(FixedLocator([1, 10, 100]))
     axes[1].yaxis.set_major_formatter(ScalarFormatter())
     axes[1].yaxis.set_minor_locator(NullLocator())
     axes[1].legend(
@@ -323,7 +323,7 @@ def make_figure(cases, ratios):
         frameon=False,
         fontsize=8,
     )
-    panel(axes[1], "(b)", "Positive bound tightness")
+    panel(axes[1], "(b)", "Size of the upper bound")
     tidy(axes[1])
     fig.savefig(
         OUT / "presentation_validation.pdf",

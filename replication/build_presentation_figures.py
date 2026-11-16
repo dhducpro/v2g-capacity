@@ -92,108 +92,78 @@ def make_contract() -> dict:
     assert np.all(planned_energy >= 0) and cancelled_energy.max() <= upper
     assert abs(cancelled_energy[-1] - (b + y) / eta_d) < 1e-12
 
-    fig, axes = plt.subplots(1, 2, figsize=(WIDTH, 3.2))
-    fig.subplots_adjust(left=0.09, right=0.985, top=0.90, bottom=0.245, wspace=0.33)
-    x, width = np.arange(2), 0.32
-    for offset, values, color, hatch in (
-        (-width / 2, nominal_import, BLUE, None),
-        (width / 2, cancelled_import, ORANGE, "//"),
-    ):
-        bars = axes[0].bar(
-            x + offset,
-            values,
-            width=width,
-            color=color,
-            hatch=hatch,
-            edgecolor="white",
-            linewidth=0.65,
-            zorder=3,
-        )
-        for bar, value in zip(bars, values):
-            axes[0].text(
-                bar.get_x() + bar.get_width() / 2,
-                value + 0.055,
-                f"{value:.3f}",
-                ha="center",
-                va="bottom",
-                fontsize=8,
-            )
-    axes[0].axhline(nominal_import[0], color=GRAY, linewidth=1, linestyle=":", zorder=2)
-    axes[0].text(
-        1.49,
-        nominal_import[0] - 0.075,
-        r"$M_0^\star$",
-        ha="right",
-        va="top",
-        color=GRAY,
-        fontsize=9,
-    )
-    axes[0].set(
-        xlim=(-0.55, 1.55),
-        ylim=(0, 3.18),
-        xticks=x,
-        xticklabels=["1: support", "2: recharge"],
-        xlabel="One-hour slot",
-        ylabel="Station net import (kW)",
-    )
-    panel(axes[0], "(a)")
-    tidy(axes[0])
+    from matplotlib.patches import Circle, FancyBboxPatch, PathPatch, Rectangle
+    from matplotlib.path import Path as DrawingPath
 
-    times = np.arange(3)
-    axes[1].plot(
-        times, planned_energy, color=BLUE, marker="o", linewidth=1.65, markersize=4, zorder=4
-    )
-    axes[1].plot(
-        times, cancelled_energy, color=ORANGE, marker="s", linewidth=1.65, markersize=4, zorder=3
-    )
-    axes[1].axhline(upper, color=GRAY, linestyle="--", linewidth=1)
-    axes[1].text(
-        1.99,
-        upper + 0.04,
-        r"Upper limit $E_i^{\max}$",
-        ha="right",
-        va="bottom",
-        color=GRAY,
-        fontsize=8,
-    )
-    axes[1].axhline(target, color=GRAY, linestyle=":", linewidth=0.9)
-    axes[1].text(
-        0.03,
-        target + 0.04,
-        r"$E_{0,i}=E_i^{\rm tar}$",
-        ha="left",
-        va="bottom",
-        color=GRAY,
-        fontsize=8,
-    )
-    axes[1].set(
-        xlim=(-0.07, 2.07),
-        ylim=(0, 1.87),
-        xticks=times,
-        xlabel="Elapsed time (h)",
-        ylabel="One donor's energy (kWh)",
-    )
-    panel(axes[1], "(b)")
-    tidy(axes[1])
-    fig.legend(
-        handles=[
-            Patch(facecolor=BLUE, label="Planned operation"),
-            Patch(
-                facecolor=ORANGE,
-                hatch="//",
-                edgecolor="white",
-                label="One cancellation, fixed charging",
-            ),
-        ],
-        loc="lower center",
-        bbox_to_anchor=(0.5, 0.04),
-        ncol=2,
-        frameon=False,
-        handlelength=1.8,
-        handletextpad=0.6,
-        labelspacing=0.5,
-        columnspacing=2,
-    )
+    width_mm, height_mm = 178, 61
+    fig = plt.figure(figsize=(WIDTH, height_mm / 25.4))
+    ax = fig.add_axes((0, 0, 1, 1), xlim=(0, width_mm), ylim=(0, height_mm))
+    ax.set_aspect("equal")
+    ax.axis("off")
+
+    def donor_car(x, y, withdrawn=False):
+        color = ORANGE if withdrawn else TEAL
+        outline = [(0, 1), (0, 3), (1.4, 3.6), (2.4, 5.1), (5.2, 5.1),
+                   (6.5, 3.5), (7.8, 3), (8, 1), (0, 1)]
+        silhouette = DrawingPath([(x + dx, y + dy) for dx, dy in outline])
+        ax.add_patch(PathPatch(silhouette, edgecolor=color,
+                               facecolor="white" if withdrawn else "#DAEEEA",
+                               linewidth=0.9, joinstyle="round"))
+        for wheel_x in (1.8, 6.2):
+            ax.add_patch(Circle((x + wheel_x, y + 1.0), 0.85, facecolor=color,
+                                edgecolor="white", linewidth=0.35))
+        if withdrawn:
+            ax.plot([x - 0.3, x + 8.1], [y - 0.4, y + 6.0],
+                    color=color, linewidth=1.35, solid_capstyle="round")
+
+    def end_energy(x, y, value):
+        width, height = 29, 8.0
+        ax.add_patch(Rectangle((x + width, y + 2.1), 1.3, height - 4.2,
+                               facecolor=GRAY, linewidth=0))
+        ax.add_patch(FancyBboxPatch((x, y), width, height, boxstyle="round,pad=0,rounding_size=1",
+                                    facecolor="white", edgecolor=GRAY, linewidth=0.8))
+        ax.add_patch(Rectangle((x + 0.8, y + 0.8), (width - 1.6) * value / upper,
+                               height - 1.6, facecolor=BLUE, linewidth=0))
+        ax.text(x + width + 4, y + height / 2, f"{value:.2f} kWh",
+                va="center", fontsize=9, fontweight="bold", color=INK)
+
+    section_x = 116
+    ax.text(1, 56, "(a)  Hour 1", fontsize=10.5, fontweight="bold", va="center")
+    ax.text(section_x, 56, "(b)  Hour 2", fontsize=10.5, fontweight="bold", va="center")
+    ax.text(1, 49.8, f"Grid and donors supply a {demand:g} kW charging request.",
+            fontsize=9, va="center")
+    ax.text(section_x, 49.8, f"Fixed recharge draws {nominal_import[1]:.2f} kW.",
+            fontsize=9, va="center")
+    ax.plot([1, 110.5], [45.6]*2, color="#BECACC", lw=0.8)
+    ax.plot([section_x, 176], [45.6]*2, color="#BECACC", lw=0.8)
+    ax.text(25, 40.8, "Donor fleet", va="center", fontsize=8.5, color=GRAY)
+    ax.text(64, 40.8, "Power supplied (kW)", va="center", fontsize=8.5, color=GRAY)
+    ax.text(section_x, 40.8, "Final energy of the fourth donor",
+            va="center", fontsize=8.5, color=GRAY)
+
+    for row, label, withdrawn, imports, energy in (
+        (29.9, "All deliver", False, nominal_import, planned_energy),
+        (12.7, "One cancels\ndischarge", True, cancelled_import, cancelled_energy),
+    ):
+        ax.text(1, row, label, va="center", fontsize=9, fontweight="bold",
+                color=ORANGE if withdrawn else INK, linespacing=1.1)
+        for donor in range(n):
+            donor_car(25 + 9.2 * donor, row - 2.6, withdrawn and donor == n - 1)
+        left = 64
+        for power, source, color in (
+            (imports[0], "Grid", BLUE), (demand - imports[0], "EVs", "#207F73")
+        ):
+            segment = 46.5 * power / demand
+            ax.add_patch(Rectangle((left, row - 4.2), segment, 8.4, facecolor=color,
+                                   edgecolor="white", linewidth=0.6))
+            ax.text(left + segment / 2, row, f"{power:.2f}", ha="center",
+                    va="center", color="white", fontsize=9, fontweight="bold")
+            ax.text(left + segment / 2, row - 7.2, source, ha="center",
+                    va="center", fontsize=8, color=GRAY)
+            left += segment
+        end_energy(section_x, row - 4, energy[-1])
+    ax.text(section_x, 4.9, f"Battery upper limit: {upper:.2f} kWh",
+            fontsize=8, color=GRAY, va="center")
     finish(fig, "presentation_contract")
     return {
         "basis": "Analytical two-slot construction; nominal q=0 optimal plan, then cancellation under that identical plan.",
@@ -212,7 +182,7 @@ def make_contract() -> dict:
         "same_plan_one_cancellation_import_kw": cancelled_import.tolist(),
         "donor_E0_and_target_kwh": initial,
         "donor_Emax_kwh": upper,
-        "time_hours": times.tolist(),
+        "time_hours": [0, dt, 2 * dt],
         "planned_donor_energy_kwh": planned_energy.tolist(),
         "cancelled_donor_energy_kwh": cancelled_energy.tolist(),
     }
@@ -379,6 +349,9 @@ def make_w206(case: dict, cuts: list[dict], frontier: list[dict]) -> dict:
             left=connected[0] - 0.5,
             height=0.54,
             color=color,
+            hatch=None if donors[i].any() else "////",
+            edgecolor="white",
+            linewidth=0,
             alpha=0.85,
             zorder=2,
         )
@@ -403,8 +376,8 @@ def make_w206(case: dict, cuts: list[dict], frontier: list[dict]) -> dict:
     )
     fig.legend(
         handles=[
-            Patch(facecolor=TEAL, label="Positive allowance"),
-            Patch(facecolor=ORANGE, label=r"Must charge in $S$"),
+            Patch(facecolor=TEAL, label="Donor allowance > 0"),
+            Patch(facecolor=ORANGE, hatch="////", edgecolor="white", label=r"Must charge in $S$"),
         ],
         loc="lower center",
         bbox_to_anchor=(0.51, 0.035),
@@ -477,7 +450,7 @@ def make_exact_class() -> dict:
         xlabel=r"Total donor rating $B$ (kW)",
         ylabel="Capacity saving (kW)",
     )
-    panel(axes[0], "(a)")
+    panel(axes[0], "(a)", "Varying total donor rating")
 
     ns = np.arange(1, 9)
     curves = {}
@@ -498,11 +471,12 @@ def make_exact_class() -> dict:
         xlim=(0.8, 8.2),
         ylim=(-0.04, 2.02),
         xticks=ns,
+        yticks=np.arange(0, 2.1, 0.5),
         xlabel=r"Number of donors $n$",
         ylabel="Capacity saving (kW)",
     )
     axes[1].legend(frameon=False, loc="lower right", labelspacing=0.5, handlelength=2)
-    panel(axes[1], "(b)")
+    panel(axes[1], "(b)", "Sharing a fixed rating")
     for ax in axes:
         tidy(ax)
     finish(fig, "presentation_exact_class")
@@ -570,8 +544,10 @@ def make_timing(rows: list[dict], summary: dict, frontier: list[dict]) -> dict:
             }
         )
 
-    colors = {"reported_as_battery_increment": BLUE, "grid_consistent_increment": ORANGE}
-    styles = {"hourly_outward": ("--", "o"), "exact_events": ("-", "s")}
+    mapping_styles = {
+        "reported_as_battery_increment": (BLUE, "o"),
+        "grid_consistent_increment": (ORANGE, "s"),
+    }
     fig, axes = plt.subplots(1, 2, figsize=(WIDTH, 3.3))
     fig.subplots_adjust(left=0.09, right=0.985, top=0.90, bottom=0.28, wspace=0.31)
     plotted = []
@@ -591,7 +567,8 @@ def make_timing(rows: list[dict], summary: dict, frontier: list[dict]) -> dict:
                         atol=TOL,
                         rtol=0,
                     )
-                linestyle, marker = styles[timing]
+                hourly = timing == "hourly_outward"
+                color, marker = mapping_styles[mapping]
                 timing_label = "Hourly" if timing == "hourly_outward" else "Exact events"
                 mapping_label = (
                     r"$d_i$" if mapping == "reported_as_battery_increment" else r"$\eta_i^c d_i$"
@@ -599,11 +576,11 @@ def make_timing(rows: list[dict], summary: dict, frontier: list[dict]) -> dict:
                 ax.plot(
                     range(7),
                     values,
-                    color=colors[mapping],
-                    linestyle=linestyle,
+                    color=color,
+                    linestyle="--" if hourly else "-",
                     marker=marker,
                     markersize=4,
-                    markerfacecolor="white" if timing == "hourly_outward" else colors[mapping],
+                    markerfacecolor="white" if hourly else color,
                     linewidth=1.5,
                     label=f"{timing_label}, {mapping_label}",
                 )
