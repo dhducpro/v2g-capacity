@@ -415,10 +415,9 @@ def make_exact_class() -> dict:
     power = gamma * total
     exact = np.minimum(power, replenishment)
 
-    fig, axes = plt.subplots(1, 2, figsize=(WIDTH, 3.0))
-    fig.subplots_adjust(left=0.09, right=0.985, top=0.90, bottom=0.20, wspace=0.34)
-    # The two bounds coincide with the solution on different branches.
-    axes[0].axvline(crossover, color="#A6AFB4", linestyle=":", linewidth=0.9, zorder=0)
+    fig, axes = plt.subplots(1, 2, figsize=(WIDTH, 2.85), sharey=True)
+    fig.subplots_adjust(left=0.085, right=0.86, top=0.88, bottom=0.21, wspace=0.22)
+    axes[0].vlines(crossover, 0, replenishment, color="#A6AFB4", linestyle=":", linewidth=0.9)
     axes[0].plot(total, exact, color=TEAL, linewidth=2.1, zorder=3)
     axes[0].plot(
         crossover,
@@ -430,31 +429,33 @@ def make_exact_class() -> dict:
         markeredgewidth=1.5,
         zorder=4,
     )
-    axes[0].text(0.98, 1.86, "Power limited", ha="center", fontsize=8)
-    axes[0].text(3.52, 1.86, "Replenishment limited", ha="center", fontsize=8)
     axes[0].annotate(
-        r"$\gamma B$",
-        xy=(0.95, 0.95 * gamma),
-        xytext=(0.44, 1.17),
-        ha="center",
-        fontsize=9,
-        arrowprops={"arrowstyle": "-", "color": "#6D777C", "lw": 0.7},
+        "Discharge\npower limit",
+        xy=(0.86, 0.86 * gamma),
+        xytext=(0.18, 1.30),
+        fontsize=8,
+        arrowprops={"arrowstyle": "-", "color": GRAY, "lw": 0.65},
     )
-    axes[0].text(3.55, 1.22, r"$k\gamma D/(1+k\gamma)$", ha="center", fontsize=8.5)
-    axes[0].text(crossover + 0.14, 0.29, rf"$B^*={crossover:.3f}$ kW", fontsize=8)
+    axes[0].text(3.52, replenishment + 0.075, f"Recharge limits saving\nto {replenishment:.2f} kW",
+                 ha="center", va="bottom", fontsize=8)
     axes[0].set(
         xlim=(0, 5),
         ylim=(-0.04, 2.02),
         xticks=range(6),
         yticks=np.arange(0, 2.1, 0.5),
-        xlabel=r"Total donor rating $B$ (kW)",
+        xlabel="Total discharge rating (kW)",
         ylabel="Capacity saving (kW)",
     )
-    panel(axes[0], "(a)", "Varying total donor rating")
+    panel(axes[0], "(a)", "Increasing discharge power")
 
     ns = np.arange(1, 9)
     curves = {}
-    for withdrawals, color, marker in [(0, BLUE, "o"), (1, ORANGE, "s"), (2, TEAL, "^")]:
+    policies = [
+        (0, BLUE, "o", "No withdrawals"),
+        (1, ORANGE, "s", "Up to one"),
+        (2, TEAL, "^", "Up to two"),
+    ]
+    for withdrawals, color, marker, label in policies:
         gamma_n = np.maximum(0, 1 - withdrawals / ns)
         values = np.minimum(gamma_n * 3, k * gamma_n * demand / (1 + k * gamma_n))
         curves[str(withdrawals)] = values.tolist()
@@ -465,18 +466,17 @@ def make_exact_class() -> dict:
             marker=marker,
             markersize=4,
             linewidth=1.6,
-            label=rf"$q={withdrawals}$",
         )
+        axes[1].annotate(label, (ns[-1], values[-1]), xytext=(5, 0),
+                         textcoords="offset points", va="center", fontsize=8)
     axes[1].set(
         xlim=(0.8, 8.2),
         ylim=(-0.04, 2.02),
         xticks=ns,
         yticks=np.arange(0, 2.1, 0.5),
-        xlabel=r"Number of donors $n$",
-        ylabel="Capacity saving (kW)",
+        xlabel="Number of donors",
     )
-    axes[1].legend(frameon=False, loc="lower right", labelspacing=0.5, handlelength=2)
-    panel(axes[1], "(b)", "Sharing a fixed rating")
+    panel(axes[1], "(b)", "Sharing 3 kW across donors")
     for ax in axes:
         tidy(ax)
     finish(fig, "presentation_exact_class")
@@ -544,77 +544,59 @@ def make_timing(rows: list[dict], summary: dict, frontier: list[dict]) -> dict:
             }
         )
 
-    mapping_styles = {
-        "reported_as_battery_increment": (BLUE, "o"),
-        "grid_consistent_increment": (ORANGE, "s"),
-    }
-    fig, axes = plt.subplots(1, 2, figsize=(WIDTH, 3.3))
-    fig.subplots_adjust(left=0.09, right=0.985, top=0.90, bottom=0.28, wspace=0.31)
+    fleets = (("(a)", "W203"), ("(b)", "W206"))
+    mappings = (
+        ("reported_as_battery_increment", "Unadjusted target"),
+        ("grid_consistent_increment", "Target adjusted for charging losses"),
+    )
+    timings = (
+        ("hourly_outward", "Rounded to whole hours", GRAY, "--", "o"),
+        ("exact_events", "Exact connection times", BLUE, "-", "s"),
+    )
+    fig, axes = plt.subplots(2, 2, figsize=(WIDTH, 3.95), sharex=True, sharey="col")
+    fig.subplots_adjust(left=0.11, right=0.984, top=0.85, bottom=0.18, hspace=0.49, wspace=0.19)
     plotted = []
-    for ax, fleet in zip(axes, ["W203", "W206"]):
-        for timing in ["hourly_outward", "exact_events"]:
-            for mapping in ["reported_as_battery_increment", "grid_consistent_increment"]:
+    for col, (panel_label, fleet) in enumerate(fleets):
+        for row_index, (mapping, target_label) in enumerate(mappings):
+            ax = axes[row_index, col]
+            for timing, label, color, style, marker in timings:
                 selected = [by_key[fleet, timing, mapping, q] for q in range(7)]
-                assert all(row["status"] == "optimal" for row in selected)
-                values = [
-                    displayed_saving(row["saving_vs_same_variant_reservation_kw"])
-                    for row in selected
-                ]
-                for q, value in enumerate(values):
-                    np.testing.assert_allclose(
-                        value,
-                        float(selected[-1]["M_kw"]) - float(selected[q]["M_kw"]),
-                        atol=TOL,
-                        rtol=0,
-                    )
-                hourly = timing == "hourly_outward"
-                color, marker = mapping_styles[mapping]
-                timing_label = "Hourly" if timing == "hourly_outward" else "Exact events"
-                mapping_label = (
-                    r"$d_i$" if mapping == "reported_as_battery_increment" else r"$\eta_i^c d_i$"
+                assert all(record["status"] == "optimal" for record in selected)
+                reservation = float(selected[-1]["M_kw"])
+                values = [displayed_saving(record["saving_vs_same_variant_reservation_kw"])
+                          for record in selected]
+                np.testing.assert_allclose(
+                    values, [reservation - float(record["M_kw"]) for record in selected],
+                    atol=TOL, rtol=0,
                 )
                 ax.plot(
-                    range(7),
-                    values,
-                    color=color,
-                    linestyle="--" if hourly else "-",
-                    marker=marker,
-                    markersize=4,
-                    markerfacecolor="white" if hourly else color,
-                    linewidth=1.5,
-                    label=f"{timing_label}, {mapping_label}",
+                    range(7), values, color=color, linestyle=style, marker=marker,
+                    markersize=3.8, linewidth=1.4, label=label,
+                    markerfacecolor="white" if timing == "hourly_outward" else color,
                 )
-                plotted.append(
-                    {
-                        "fleet": fleet,
-                        "timing": timing,
-                        "energy_mapping": mapping,
-                        "q": list(range(7)),
-                        "capacity_saving_kw": values,
-                        "same_variant_reservation_capacity_kw": float(selected[-1]["M_kw"]),
-                    }
-                )
-        ax.set(
-            xticks=range(7),
-            xlim=(-0.1, 6.1),
-            xlabel=r"Protected withdrawals $q$",
-            ylabel="Capacity saving (kW)",
-        )
-        ax.set_ylim(bottom=-0.08 if fleet == "W203" else -0.25)
-        tidy(ax)
-        panel(ax, "(a)" if fleet == "W203" else "(b)", fleet)
-    handles, labels = axes[0].get_legend_handles_labels()
-    fig.legend(
-        handles,
-        labels,
-        loc="lower center",
-        bbox_to_anchor=(0.52, 0.015),
-        ncol=2,
-        frameon=False,
-        handlelength=2.8,
-        columnspacing=2.7,
-        labelspacing=0.5,
-    )
+                ax.annotate(f"{values[1]:.2f}", (1, values[1]), xytext=(4, 3),
+                            textcoords="offset points", color=color, fontsize=8)
+                plotted.append({
+                    "fleet": fleet, "timing": timing, "energy_mapping": mapping,
+                    "q": list(range(7)), "capacity_saving_kw": values,
+                    "same_variant_reservation_capacity_kw": reservation,
+                })
+            ax.set(xticks=range(7), xlim=(-0.15, 6.15))
+            if fleet == "W203":
+                ax.set(ylim=(-0.14, 3.18), yticks=(0, 1, 2, 3))
+            else:
+                ax.set(ylim=(-0.50, 10.45), yticks=(0, 2, 4, 6, 8, 10))
+            tidy(ax)
+            if col == 0:
+                ax.set_title(target_label, loc="left", pad=5, fontsize=8.6)
+            if row_index == 0:
+                ax.text(0, 1.36, f"{panel_label}  {fleet}", transform=ax.transAxes,
+                        fontsize=10, fontweight="bold")
+    fig.supylabel("Capacity saving (kW)", x=0.019, y=0.52, fontsize=9)
+    fig.supxlabel(r"Number of withdrawals covered, $q$", y=0.085, fontsize=9)
+    handles, labels = axes[0, 0].get_legend_handles_labels()
+    fig.legend(handles, labels, loc="lower center", bbox_to_anchor=(0.53, 0.001),
+               ncol=2, frameon=False, handlelength=2.6, columnspacing=2.5)
     finish(fig, "presentation_timing")
     return {
         "source_rows": len(rows),
